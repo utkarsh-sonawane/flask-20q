@@ -29,36 +29,115 @@ const answersList = document.getElementById("answers-list");
 const waitingStatus = document.getElementById("waiting-status");
 const playerCountBox = document.getElementById("player-count");
 const historyContent = document.getElementById("history-content");
-const darkModeToggle = document.getElementById("dark-mode-toggle");
+const votingSection = document.getElementById("voting-section");
+const voteOptions = document.getElementById("vote-options");
+const voteResults = document.getElementById("vote-results");
+const exportBtn = document.getElementById("export-btn");
+const emojiContainer = document.getElementById("emoji-reactions");
+const musicToggle = document.getElementById("music-toggle");
+const volumeSlider = document.getElementById("volume-slider");
+const backgroundMusic = document.getElementById("background-music");
 
 let currentQ = 1;
 let answered = false;
+let voted = false;
 let answersHistory = {}; // Store all answers history
+let musicPlaying = false;
 
 console.log("Game initialized for room:", room, "Player:", playerId, "Host:", isHost);
 
-// 🌙 Dark mode functionality
-function initDarkMode() {
-  const savedTheme = localStorage.getItem('theme') || 'light';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-  updateDarkModeButton(savedTheme);
-}
-
-function updateDarkModeButton(theme) {
-  darkModeToggle.textContent = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
-}
-
-darkModeToggle.addEventListener('click', () => {
-  const currentTheme = document.documentElement.getAttribute('data-theme');
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
-  updateDarkModeButton(newTheme);
+// 🎵 Background Music Controls
+musicToggle.addEventListener('click', () => {
+  if (musicPlaying) {
+    backgroundMusic.pause();
+    musicToggle.textContent = '🎵';
+    musicPlaying = false;
+  } else {
+    // Use a simple tone generator since we can't rely on external audio files
+    playBackgroundMusic();
+    musicToggle.textContent = '🔇';
+    musicPlaying = true;
+  }
 });
 
-// Initialize dark mode on page load
-initDarkMode();
+volumeSlider.addEventListener('input', (e) => {
+  backgroundMusic.volume = e.target.value / 100;
+});
+
+function playBackgroundMusic() {
+  // Create a simple ambient sound using Web Audio API
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  
+  oscillator.frequency.setValueAtTime(220, audioContext.currentTime);
+  gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+  
+  oscillator.start();
+  
+  // Create a gentle ambient loop
+  setInterval(() => {
+    if (musicPlaying) {
+      const freq = 220 + Math.sin(Date.now() / 1000) * 50;
+      oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+    }
+  }, 100);
+}
+
+// 🎨 Theme System
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+  
+  // Update active button
+  document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelector(`.theme-btn.${theme}`).classList.add('active');
+}
+
+// Initialize theme
+const savedTheme = localStorage.getItem('theme') || 'light';
+setTheme(savedTheme);
+
+// 🎭 Flying Emoji Reactions
+function sendReaction(emoji) {
+  // Send to Firebase for others to see
+  database.ref(`/${room}/reactions`).push({
+    emoji: emoji,
+    player: playerId,
+    timestamp: firebase.database.ServerValue.TIMESTAMP
+  });
+  
+  // Show locally
+  createFlyingEmoji(emoji);
+}
+
+function createFlyingEmoji(emoji) {
+  const emojiEl = document.createElement('div');
+  emojiEl.className = 'flying-emoji';
+  emojiEl.textContent = emoji;
+  
+  // Random starting position
+  emojiEl.style.left = Math.random() * window.innerWidth + 'px';
+  emojiEl.style.top = window.innerHeight + 'px';
+  
+  emojiContainer.appendChild(emojiEl);
+  
+  // Remove after animation
+  setTimeout(() => {
+    emojiEl.remove();
+  }, 3000);
+}
+
+// Listen for reactions from other players
+database.ref(`/${room}/reactions`).on("child_added", snap => {
+  const reaction = snap.val();
+  if (reaction && reaction.player !== playerId) {
+    createFlyingEmoji(reaction.emoji);
+  }
+});
 
 // Initialize room and questions
 fetch(`/init-room?room=${room}`)
@@ -84,6 +163,103 @@ database.ref(`/${room}/players`).on("value", snap => {
   playerCountBox.innerText = `Players online: ${playerCount}`;
   console.log("Players updated:", playerCount);
 });
+
+// 🗳️ Voting System
+function showVoting(answers) {
+  if (Object.keys(answers).length < 2) return; // Need at least 2 answers to vote
+  
+  votingSection.classList.add('active');
+  voteOptions.innerHTML = '';
+  voted = false;
+  
+  Object.entries(answers).forEach(([player, answer]) => {
+    if (player !== playerId) { // Can't vote for yourself
+      const option = document.createElement('div');
+      option.className = 'vote-option';
+      option.innerHTML = `<strong>${player}:</strong> ${answer}`;
+      option.onclick = () => castVote(player, option);
+      voteOptions.appendChild(option);
+    }
+  });
+}
+
+function castVote(votedPlayer, optionEl) {
+  if (voted) return;
+  
+  database.ref(`/${room}/votes/q${currentQ}/${playerId}`).set(votedPlayer);
+  optionEl.classList.add('voted');
+  voted = true;
+}
+
+// Watch for vote results
+function watchVoteResults() {
+  database.ref(`/${room}/votes/q${currentQ}`).on("value", snap => {
+    const votes = snap.val() || {};
+    const voteCount = {};
+    
+    Object.values(votes).forEach(votedPlayer => {
+      voteCount[votedPlayer] = (voteCount[votedPlayer] || 0) + 1;
+    });
+    
+    if (Object.keys(voteCount).length > 0) {
+      displayVoteResults(voteCount);
+    }
+  });
+}
+
+function displayVoteResults(voteCount) {
+  const total = Object.values(voteCount).reduce((a, b) => a + b, 0);
+  let resultsHTML = '<h4>🏆 Voting Results:</h4>';
+  
+  Object.entries(voteCount)
+    .sort(([,a], [,b]) => b - a)
+    .forEach(([player, votes]) => {
+      const percentage = Math.round((votes / total) * 100);
+      resultsHTML += `
+        <div style="margin: 10px 0;">
+          <div><strong>${player}</strong> - ${votes} votes</div>
+          <div class="vote-bar">
+            <div class="vote-fill" style="width: ${percentage}%">${percentage}%</div>
+          </div>
+        </div>
+      `;
+    });
+  
+  voteResults.innerHTML = resultsHTML;
+}
+
+// 📄 Export Game Feature
+exportBtn.addEventListener('click', () => {
+  exportGameResults();
+});
+
+function exportGameResults() {
+  let exportData = `🎯 20 Questions Game Results\n`;
+  exportData += `Room: ${room}\n`;
+  exportData += `Date: ${new Date().toLocaleDateString()}\n`;
+  exportData += `Players: ${Object.keys(answersHistory).length > 0 ? 'Multiple players participated' : 'No data'}\n\n`;
+  
+  Object.entries(answersHistory).forEach(([qNum, data]) => {
+    exportData += `Q${qNum}: ${data.question}\n`;
+    Object.entries(data.answers).forEach(([player, answer]) => {
+      exportData += `  • ${player}: ${answer}\n`;
+    });
+    exportData += '\n';
+  });
+  
+  // Create and download file
+  const blob = new Blob([exportData], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `20questions-${room}-${new Date().toISOString().split('T')[0]}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  alert('Game results exported successfully! 📄');
+}
 
 // 📝 Update answers history display
 function updateAnswersHistory() {
@@ -117,9 +293,11 @@ function loadQuestion(num) {
   console.log("Loading question:", num);
   currentQ = num;
   answered = false;
+  voted = false;
   answerInput.value = "";
   answersList.innerHTML = "";
   waitingStatus.innerText = "";
+  votingSection.classList.remove('active');
 
   // Load question from global questions path
   database.ref(`/questions/q${num}`).once("value").then(snapshot => {
@@ -168,15 +346,21 @@ function loadQuestion(num) {
       
       console.log(`Answers: ${submitted}/${total}`);
       
-      if (isHost && total > 0 && submitted === total && num < 20) {
-        waitingStatus.innerText = "All answered! Moving to next question...";
-        setTimeout(() => {
-          database.ref(`/${room}/current`).set(num + 1);
-        }, 3000);
+      if (submitted === total && total > 0) {
+        // Show voting when all answers are in
+        showVoting(answers);
+        watchVoteResults();
+        
+        if (isHost && num < 20) {
+          waitingStatus.innerText = "All answered! Vote for the funniest! Moving to next question in 15 seconds...";
+          setTimeout(() => {
+            database.ref(`/${room}/current`).set(num + 1);
+          }, 15000);
+        } else if (submitted === total && total > 0) {
+          waitingStatus.innerText = "All answered! Vote for the funniest!";
+        }
       } else if (submitted < total && total > 0) {
         waitingStatus.innerText = `Waiting for ${total - submitted} more...`;
-      } else if (submitted === total && total > 0) {
-        waitingStatus.innerText = "All answered!";
       }
     });
   });
