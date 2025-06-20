@@ -33,6 +33,7 @@ const votingSection = document.getElementById("voting-section");
 const voteOptions = document.getElementById("vote-options");
 const voteResults = document.getElementById("vote-results");
 const exportBtn = document.getElementById("export-btn");
+const clearHistoryBtn = document.getElementById("clear-history-btn");
 const emojiContainer = document.getElementById("emoji-reactions");
 
 let currentQ = 1;
@@ -55,6 +56,17 @@ function setTheme(theme) {
 // Initialize theme
 const savedTheme = localStorage.getItem('theme') || 'light';
 setTheme(savedTheme);
+
+// 🧹 Clear History Function
+function clearHistory() {
+  if (confirm("Are you sure you want to clear the answers history? This cannot be undone.")) {
+    answersHistory = {};
+    updateAnswersHistory();
+    alert("History cleared! 🧹");
+  }
+}
+
+clearHistoryBtn.addEventListener('click', clearHistory);
 
 // 🎭 Flying Emoji Reactions
 function sendReaction(emoji) {
