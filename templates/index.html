@@ -19,7 +19,16 @@
     </div>
   </div>
   
-  <div id="player-count">Players online: 0</div>
+  <div class="game-controls">
+    <div id="player-count">Players online: 0</div>
+    <select id="game-mode" onchange="changeGameMode()" style="display: none;">
+      <option value="normal">🎯 Normal Mode</option>
+      <option value="reverse">🔄 Reverse Mode</option>
+    </select>
+  </div>
+  
+  <!-- Player Profiles -->
+  <div id="player-profiles" class="player-profiles-container"></div>
   
   <div id="question-box">Loading questions...</div>
 
@@ -37,6 +46,10 @@
   <button id="submit-btn">Submit Answer</button>
 
   <div id="waiting-status"></div>
+  
+  <!-- Word Cloud -->
+  <div id="word-cloud" class="word-cloud-container" style="display: none;"></div>
+  
   <div id="answers-list"></div>
 
   <button id="next-btn" style="display: none;">Next Question (Host Only)</button>

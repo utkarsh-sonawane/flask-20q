@@ -15,9 +15,26 @@ const database = firebase.database();
 const urlParams = new URLSearchParams(window.location.search);
 const room = urlParams.get("room") || "default-room";
 
-const playerId = prompt("Enter your name:") || `Player_${Math.floor(Math.random() * 1000)}`;
-const isHost = confirm("Are you the host?");
+// 🔐 Password-based host system
+const HOST_PASSWORD = "host123"; // You can change this
+let playerId = prompt("Enter your name:") || `Player_${Math.floor(Math.random() * 1000)}`;
+const hostPassword = prompt("Enter host password (leave empty if you're not host):");
+const isHost = hostPassword === HOST_PASSWORD;
 
+if (isHost) {
+  alert("✅ You are now the host!");
+} else if (hostPassword && hostPassword !== HOST_PASSWORD) {
+  alert("❌ Wrong password. You'll join as a regular player.");
+}
+
+// 🎮 Game modes
+let gameMode = 'normal'; // 'normal' or 'reverse'
+let currentQ = 1;
+let answered = false;
+let answersHistory = {}; // Store all answers history
+let playerProfiles = {}; // Store player profiles
+
+// DOM elements
 const questionBox = document.getElementById("question-box");
 const answerInput = document.getElementById("answer-input");
 const submitBtn = document.getElementById("submit-btn");
@@ -32,12 +49,63 @@ const historyContent = document.getElementById("history-content");
 const exportBtn = document.getElementById("export-btn");
 const clearHistoryBtn = document.getElementById("clear-history-btn");
 const emojiContainer = document.getElementById("emoji-reactions");
-
-let currentQ = 1;
-let answered = false;
-let answersHistory = {}; // Store all answers history
+const wordCloudContainer = document.getElementById("word-cloud");
+const gameModeSelect = document.getElementById("game-mode");
+const profileContainer = document.getElementById("player-profiles");
 
 console.log("Game initialized for room:", room, "Player:", playerId, "Host:", isHost);
+
+// 👤 Player Profile System
+function initializePlayerProfile() {
+  const savedProfile = localStorage.getItem(`profile_${playerId}`);
+  if (savedProfile) {
+    playerProfiles[playerId] = JSON.parse(savedProfile);
+  } else {
+    playerProfiles[playerId] = {
+      name: playerId,
+      avatar: getRandomAvatar(),
+      color: getRandomColor(),
+      gamesPlayed: 0,
+      questionsAnswered: 0,
+      favoriteAnswers: [],
+      joinDate: new Date().toISOString()
+    };
+    savePlayerProfile();
+  }
+  
+  // Sync to Firebase
+  database.ref(`/${room}/profiles/${playerId}`).set(playerProfiles[playerId]);
+}
+
+function getRandomAvatar() {
+  const avatars = ['🐱', '🐶', '🦊', '🐻', '🐼', '🐨', '🦁', '🐯', '🐸', '🐵'];
+  return avatars[Math.floor(Math.random() * avatars.length)];
+}
+
+function getRandomColor() {
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
+  return colors[Math.floor(Math.random() * colors.length)];
+}
+
+function savePlayerProfile() {
+  localStorage.setItem(`profile_${playerId}`, JSON.stringify(playerProfiles[playerId]));
+}
+
+function updatePlayerStats(action) {
+  if (!playerProfiles[playerId]) return;
+  
+  switch(action) {
+    case 'answer':
+      playerProfiles[playerId].questionsAnswered++;
+      break;
+    case 'game':
+      playerProfiles[playerId].gamesPlayed++;
+      break;
+  }
+  
+  savePlayerProfile();
+  database.ref(`/${room}/profiles/${playerId}`).set(playerProfiles[playerId]);
+}
 
 // 🎨 Theme System
 function setTheme(theme) {
@@ -58,6 +126,8 @@ function clearHistory() {
   if (confirm("Are you sure you want to clear the answers history? This cannot be undone.")) {
     answersHistory = {};
     updateAnswersHistory();
+    // Clear from Firebase
+    database.ref(`/${room}/history`).remove();
     alert("History cleared! 🧹");
   }
 }
@@ -66,14 +136,12 @@ clearHistoryBtn.addEventListener('click', clearHistory);
 
 // 🎭 Flying Emoji Reactions
 function sendReaction(emoji) {
-  // Send to Firebase for others to see
   database.ref(`/${room}/reactions`).push({
     emoji: emoji,
     player: playerId,
     timestamp: firebase.database.ServerValue.TIMESTAMP
   });
   
-  // Show locally
   createFlyingEmoji(emoji);
 }
 
@@ -82,13 +150,11 @@ function createFlyingEmoji(emoji) {
   emojiEl.className = 'flying-emoji';
   emojiEl.textContent = emoji;
   
-  // Random starting position
   emojiEl.style.left = Math.random() * window.innerWidth + 'px';
   emojiEl.style.top = window.innerHeight + 'px';
   
   emojiContainer.appendChild(emojiEl);
   
-  // Remove after animation
   setTimeout(() => {
     emojiEl.remove();
   }, 3000);
@@ -102,17 +168,177 @@ database.ref(`/${room}/reactions`).on("child_added", snap => {
   }
 });
 
+// ☁️ Word Cloud Generation
+function generateWordCloud(answers) {
+  if (!answers || Object.keys(answers).length === 0) return;
+  
+  // Combine all answers into one text
+  const allText = Object.values(answers).join(' ').toLowerCase();
+  
+  // Simple word frequency counter
+  const words = allText.split(/\s+/).filter(word => 
+    word.length > 2 && 
+    !['the', 'and', 'but', 'for', 'are', 'with', 'this', 'that', 'have', 'from', 'they', 'know', 'want', 'been', 'good', 'much', 'some', 'time', 'very', 'when', 'come', 'here', 'just', 'like', 'long', 'make', 'many', 'over', 'such', 'take', 'than', 'them', 'well', 'were'].includes(word)
+  );
+  
+  const wordCount = {};
+  words.forEach(word => {
+    wordCount[word] = (wordCount[word] || 0) + 1;
+  });
+  
+  // Sort by frequency
+  const sortedWords = Object.entries(wordCount)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 20); // Top 20 words
+  
+  // Create word cloud HTML
+  let cloudHTML = '<div class="word-cloud-title">☁️ Word Cloud</div><div class="word-cloud-words">';
+  
+  sortedWords.forEach(([word, count]) => {
+    const size = Math.min(12 + count * 4, 32); // Scale font size
+    const opacity = Math.min(0.5 + count * 0.1, 1);
+    cloudHTML += `<span class="word-cloud-word" style="font-size: ${size}px; opacity: ${opacity}">${word}</span> `;
+  });
+  
+  cloudHTML += '</div>';
+  wordCloudContainer.innerHTML = cloudHTML;
+  wordCloudContainer.style.display = 'block';
+}
+
+// 🔄 Reverse Mode Functions
+function startReverseMode() {
+  gameMode = 'reverse';
+  questionBox.innerHTML = `
+    <div class="reverse-mode-header">🔄 Reverse Mode</div>
+    <div class="reverse-instructions">Write your own question for others to guess who wrote it!</div>
+  `;
+  answerInput.placeholder = "Write an interesting question...";
+  submitBtn.textContent = "Submit Question";
+  
+  // Clear previous data
+  database.ref(`/${room}/reverse-questions`).remove();
+  database.ref(`/${room}/reverse-guesses`).remove();
+}
+
+function submitReverseQuestion() {
+  const question = answerInput.value.trim();
+  if (!question) {
+    alert("Please write a question!");
+    return;
+  }
+  
+  if (answered) {
+    alert("You have already submitted a question!");
+    return;
+  }
+  
+  database.ref(`/${room}/reverse-questions`).push({
+    question: question,
+    author: playerId,
+    timestamp: firebase.database.ServerValue.TIMESTAMP
+  }).then(() => {
+    answered = true;
+    answerInput.value = "";
+    submitBtn.textContent = "Question Submitted!";
+    submitBtn.disabled = true;
+  });
+}
+
+function showReverseGuessing() {
+  database.ref(`/${room}/reverse-questions`).once('value').then(snapshot => {
+    const questions = snapshot.val() || {};
+    const questionList = Object.entries(questions);
+    
+    if (questionList.length === 0) return;
+    
+    let html = '<div class="reverse-guessing"><h3>🤔 Guess who wrote each question:</h3>';
+    
+    questionList.forEach(([id, data], index) => {
+      html += `
+        <div class="reverse-question-item">
+          <div class="question-text">${index + 1}. "${data.question}"</div>
+          <select class="guess-select" data-question-id="${id}">
+            <option value="">Select who wrote this...</option>
+          </select>
+        </div>
+      `;
+    });
+    
+    html += '<button onclick="submitReverseGuesses()" class="submit-guesses-btn">Submit All Guesses</button></div>';
+    answersList.innerHTML = html;
+    
+    // Populate player options
+    database.ref(`/${room}/players`).once('value').then(playersSnap => {
+      const players = playersSnap.val() || {};
+      const selects = document.querySelectorAll('.guess-select');
+      
+      selects.forEach(select => {
+        Object.keys(players).forEach(playerName => {
+          if (playerName !== playerId) { // Don't show own name
+            const option = document.createElement('option');
+            option.value = playerName;
+            option.textContent = playerName;
+            select.appendChild(option);
+          }
+        });
+      });
+    });
+  });
+}
+
+function submitReverseGuesses() {
+  const selects = document.querySelectorAll('.guess-select');
+  const guesses = {};
+  
+  selects.forEach(select => {
+    if (select.value) {
+      guesses[select.dataset.questionId] = select.value;
+    }
+  });
+  
+  database.ref(`/${room}/reverse-guesses/${playerId}`).set(guesses);
+  alert("Guesses submitted! 🎯");
+}
+
+// 🎮 Game Mode Selection
+function changeGameMode() {
+  if (!isHost) {
+    alert("Only the host can change game modes!");
+    gameModeSelect.value = gameMode;
+    return;
+  }
+  
+  const newMode = gameModeSelect.value;
+  gameMode = newMode;
+  
+  database.ref(`/${room}/gameMode`).set(newMode);
+  
+  if (newMode === 'reverse') {
+    startReverseMode();
+  } else {
+    // Reset to normal mode
+    questionBox.textContent = "Loading questions...";
+    answerInput.placeholder = "Type your answer here...";
+    submitBtn.textContent = "Submit Answer";
+    loadQuestion(currentQ);
+  }
+}
+
+// Initialize player profile
+initializePlayerProfile();
+
 // Initialize room and questions
 fetch(`/init-room?room=${room}`)
   .then(response => response.json())
   .then(data => {
     console.log("Room initialized:", data);
+    updatePlayerStats('game');
   })
   .catch(error => {
     console.error("Error initializing room:", error);
   });
 
-// 👥 Track live players
+// 👥 Track live players and profiles
 database.ref(`/${room}/players/${playerId}`).set({
   name: playerId,
   timestamp: firebase.database.ServerValue.TIMESTAMP
@@ -124,8 +350,33 @@ database.ref(`/${room}/players`).on("value", snap => {
   const players = snap.val() || {};
   const playerCount = Object.keys(players).length;
   playerCountBox.innerText = `Players online: ${playerCount}`;
-  console.log("Players updated:", playerCount);
+  
+  // Update player profiles display
+  updatePlayerProfilesDisplay();
 });
+
+// Listen for player profiles
+database.ref(`/${room}/profiles`).on("value", snap => {
+  const profiles = snap.val() || {};
+  Object.assign(playerProfiles, profiles);
+  updatePlayerProfilesDisplay();
+});
+
+function updatePlayerProfilesDisplay() {
+  let html = '<h3>👥 Players</h3>';
+  
+  Object.entries(playerProfiles).forEach(([name, profile]) => {
+    html += `
+      <div class="player-profile" style="border-left: 4px solid ${profile.color}">
+        <span class="player-avatar">${profile.avatar}</span>
+        <span class="player-name">${profile.name}</span>
+        <span class="player-stats">${profile.questionsAnswered} answers</span>
+      </div>
+    `;
+  });
+  
+  profileContainer.innerHTML = html;
+}
 
 // 📄 Export Game Feature
 exportBtn.addEventListener('click', () => {
@@ -135,9 +386,18 @@ exportBtn.addEventListener('click', () => {
 function exportGameResults() {
   let exportData = `🎯 20 Questions Game Results\n`;
   exportData += `Room: ${room}\n`;
+  exportData += `Mode: ${gameMode}\n`;
   exportData += `Date: ${new Date().toLocaleDateString()}\n`;
-  exportData += `Players: ${Object.keys(answersHistory).length > 0 ? 'Multiple players participated' : 'No data'}\n\n`;
+  exportData += `Players: ${Object.keys(playerProfiles).length}\n\n`;
   
+  // Player profiles
+  exportData += `👥 PLAYER PROFILES:\n`;
+  Object.entries(playerProfiles).forEach(([name, profile]) => {
+    exportData += `${profile.avatar} ${profile.name} - ${profile.questionsAnswered} answers, ${profile.gamesPlayed} games\n`;
+  });
+  exportData += '\n';
+  
+  // Questions and answers
   Object.entries(answersHistory).forEach(([qNum, data]) => {
     exportData += `Q${qNum}: ${data.question}\n`;
     Object.entries(data.answers).forEach(([player, answer]) => {
@@ -146,7 +406,6 @@ function exportGameResults() {
     exportData += '\n';
   });
   
-  // Create and download file
   const blob = new Blob([exportData], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -175,9 +434,13 @@ function updateAnswersHistory() {
         <div class="history-question">
           <h4>Q${qNum}: ${questionData.question}</h4>
           <ul class="history-answers">
-            ${Object.entries(questionData.answers).map(([name, answer]) => 
-              `<li><b>${name}:</b> ${answer}</li>`
-            ).join('')}
+            ${Object.entries(questionData.answers).map(([name, answer]) => {
+              const profile = playerProfiles[name] || {};
+              return `<li style="border-left: 3px solid ${profile.color || '#ccc'}">
+                <span class="answer-avatar">${profile.avatar || '👤'}</span>
+                <b>${name}:</b> ${answer}
+              </li>`;
+            }).join('')}
           </ul>
         </div>
       `;
@@ -189,14 +452,16 @@ function updateAnswersHistory() {
 
 // 🧠 Load and watch question
 function loadQuestion(num) {
+  if (gameMode === 'reverse') return;
+  
   console.log("Loading question:", num);
   currentQ = num;
   answered = false;
   answerInput.value = "";
   answersList.innerHTML = "";
   waitingStatus.innerText = "";
+  wordCloudContainer.style.display = 'none';
 
-  // Load question from global questions path
   database.ref(`/questions/q${num}`).once("value").then(snapshot => {
     const question = snapshot.val();
     if (question) {
@@ -217,10 +482,21 @@ function loadQuestion(num) {
     const answerEntries = Object.entries(answers);
     
     if (answerEntries.length > 0) {
-      const html = answerEntries.map(([name, ans]) => `<li><b>${name}:</b> ${ans}</li>`).join("");
-      answersList.innerHTML = `<ul>${html}</ul>`;
+      let html = '<ul>';
+      answerEntries.forEach(([name, ans]) => {
+        const profile = playerProfiles[name] || {};
+        html += `<li style="border-left: 3px solid ${profile.color || '#ccc'}">
+          <span class="answer-avatar">${profile.avatar || '👤'}</span>
+          <b>${name}:</b> ${ans}
+        </li>`;
+      });
+      html += '</ul>';
+      answersList.innerHTML = html;
       
-      // 📝 Store in history when answers are complete
+      // Generate word cloud
+      generateWordCloud(answers);
+      
+      // Store in history
       database.ref(`/questions/q${num}`).once("value").then(questionSnap => {
         const questionText = questionSnap.val();
         if (questionText) {
@@ -229,13 +505,17 @@ function loadQuestion(num) {
             answers: answers
           };
           updateAnswersHistory();
+          
+          // Save to Firebase history
+          database.ref(`/${room}/history/q${num}`).set(answersHistory[num]);
         }
       });
     } else {
       answersList.innerHTML = "";
+      wordCloudContainer.style.display = 'none';
     }
 
-    // 📊 Show answer count status (no auto-advance)
+    // Show answer count status
     database.ref(`/${room}/players`).once("value").then(playerSnap => {
       const players = playerSnap.val() || {};
       const total = Object.keys(players).length;
@@ -254,6 +534,11 @@ function loadQuestion(num) {
 
 // 📤 Submit answer
 function submitAnswer() {
+  if (gameMode === 'reverse') {
+    submitReverseQuestion();
+    return;
+  }
+  
   const answer = answerInput.value.trim();
   console.log("Submit clicked, answer:", answer, "answered:", answered);
   
@@ -274,6 +559,9 @@ function submitAnswer() {
       answerInput.value = "";
       submitBtn.textContent = "Submitted!";
       submitBtn.disabled = true;
+      
+      // Update player stats
+      updatePlayerStats('answer');
     })
     .catch(error => {
       console.error("Error submitting answer:", error);
@@ -297,10 +585,28 @@ database.ref(`/${room}/current`).on("value", snapshot => {
   console.log("Current question changed to:", q);
   
   // Reset submit button when question changes
-  submitBtn.textContent = "Submit";
+  submitBtn.textContent = gameMode === 'reverse' ? "Submit Question" : "Submit Answer";
   submitBtn.disabled = false;
   
   loadQuestion(q);
+});
+
+// Listen for game mode changes
+database.ref(`/${room}/gameMode`).on("value", snapshot => {
+  const mode = snapshot.val() || 'normal';
+  gameMode = mode;
+  gameModeSelect.value = mode;
+  
+  if (mode === 'reverse' && !isHost) {
+    startReverseMode();
+  }
+});
+
+// Load saved history from Firebase
+database.ref(`/${room}/history`).once("value").then(snapshot => {
+  const history = snapshot.val() || {};
+  answersHistory = history;
+  updateAnswersHistory();
 });
 
 // 💬 Chat system
@@ -313,9 +619,13 @@ function sendChatMessage() {
     return;
   }
   
+  const profile = playerProfiles[playerId] || {};
+  
   database.ref(`/${room}/chat`).push({
     name: playerId,
     message: msg,
+    avatar: profile.avatar || '👤',
+    color: profile.color || '#333',
     timestamp: firebase.database.ServerValue.TIMESTAMP
   }).then(() => {
     console.log("Chat message sent");
@@ -327,7 +637,6 @@ function sendChatMessage() {
 
 chatSend.addEventListener('click', sendChatMessage);
 
-// ⌨️ Enable chat on Enter key
 chatInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
     e.preventDefault();
@@ -339,20 +648,41 @@ database.ref(`/${room}/chat`).on("child_added", snap => {
   const data = snap.val();
   if (data && data.name && data.message) {
     const msgEl = document.createElement("div");
-    msgEl.innerHTML = `<b>${data.name}:</b> ${data.message}`;
-    msgEl.style.marginBottom = "5px";
+    msgEl.className = "chat-message";
+    msgEl.innerHTML = `
+      <span class="chat-avatar" style="color: ${data.color || '#333'}">${data.avatar || '👤'}</span>
+      <b>${data.name}:</b> ${data.message}
+    `;
     chatBox.appendChild(msgEl);
     chatBox.scrollTop = chatBox.scrollHeight;
     console.log("Chat message added:", data);
   }
 });
 
-// 🔘 Host manual next (ONLY way to advance)
+// 🔘 Host manual next
 nextBtn.addEventListener('click', () => {
   console.log("Next button clicked, isHost:", isHost);
   
   if (!isHost) {
     alert("Only the host can go to the next question!");
+    return;
+  }
+  
+  if (gameMode === 'reverse') {
+    // Check if all questions are submitted, then show guessing phase
+    database.ref(`/${room}/players`).once('value').then(playersSnap => {
+      const playerCount = Object.keys(playersSnap.val() || {}).length;
+      
+      database.ref(`/${room}/reverse-questions`).once('value').then(questionsSnap => {
+        const questionCount = Object.keys(questionsSnap.val() || {}).length;
+        
+        if (questionCount >= playerCount) {
+          showReverseGuessing();
+        } else {
+          alert(`Waiting for ${playerCount - questionCount} more questions...`);
+        }
+      });
+    });
     return;
   }
   
@@ -375,11 +705,13 @@ nextBtn.addEventListener('click', () => {
   });
 });
 
-// Show/hide next button based on host status
+// Show/hide controls based on host status
 if (isHost) {
   nextBtn.style.display = "inline-block";
+  gameModeSelect.style.display = "inline-block";
 } else {
   nextBtn.style.display = "none";
+  gameModeSelect.style.display = "none";
 }
 
 console.log("Script loaded successfully");
