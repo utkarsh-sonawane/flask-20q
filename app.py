@@ -38,13 +38,38 @@ def generate_questions():
     # ✅ Get room name from query string — default to "room1"
     room = request.args.get("room", "room1")
 
+    # ✅ Store questions in the global questions path AND room-specific path
     for i, q in enumerate(questions):
-        db.reference(f"/{room}/questions/q{i+1}").set(q)
+        db.reference(f"/questions/q{i+1}").set(q)  # Global questions
+        db.reference(f"/{room}/questions/q{i+1}").set(q)  # Room-specific backup
 
     # ✅ Reset to question 1
     db.reference(f"/{room}/current").set(1)
+    
+    # ✅ Clear previous answers
+    db.reference(f"/{room}/answers").delete()
 
-    return jsonify({"status": "success", "questions": questions})
+    return jsonify({"status": "success", "questions": questions, "room": room})
+
+@app.route("/init-room")
+def init_room():
+    """Initialize a room with questions automatically"""
+    room = request.args.get("room", "default-room")
+    
+    # Check if questions already exist
+    questions_ref = db.reference("/questions")
+    existing_questions = questions_ref.get()
+    
+    if not existing_questions:
+        # Generate questions if they don't exist
+        questions = random.sample(all_questions, 20)
+        for i, q in enumerate(questions):
+            db.reference(f"/questions/q{i+1}").set(q)
+    
+    # Initialize room
+    db.reference(f"/{room}/current").set(1)
+    
+    return jsonify({"status": "initialized", "room": room})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=3000, debug=True)
