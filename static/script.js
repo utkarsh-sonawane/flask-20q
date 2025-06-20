@@ -34,58 +34,13 @@ const voteOptions = document.getElementById("vote-options");
 const voteResults = document.getElementById("vote-results");
 const exportBtn = document.getElementById("export-btn");
 const emojiContainer = document.getElementById("emoji-reactions");
-const musicToggle = document.getElementById("music-toggle");
-const volumeSlider = document.getElementById("volume-slider");
-const backgroundMusic = document.getElementById("background-music");
 
 let currentQ = 1;
 let answered = false;
 let voted = false;
 let answersHistory = {}; // Store all answers history
-let musicPlaying = false;
 
 console.log("Game initialized for room:", room, "Player:", playerId, "Host:", isHost);
-
-// 🎵 Background Music Controls
-musicToggle.addEventListener('click', () => {
-  if (musicPlaying) {
-    backgroundMusic.pause();
-    musicToggle.textContent = '🎵';
-    musicPlaying = false;
-  } else {
-    // Use a simple tone generator since we can't rely on external audio files
-    playBackgroundMusic();
-    musicToggle.textContent = '🔇';
-    musicPlaying = true;
-  }
-});
-
-volumeSlider.addEventListener('input', (e) => {
-  backgroundMusic.volume = e.target.value / 100;
-});
-
-function playBackgroundMusic() {
-  // Create a simple ambient sound using Web Audio API
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
-  
-  oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
-  
-  oscillator.frequency.setValueAtTime(220, audioContext.currentTime);
-  gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-  
-  oscillator.start();
-  
-  // Create a gentle ambient loop
-  setInterval(() => {
-    if (musicPlaying) {
-      const freq = 220 + Math.sin(Date.now() / 1000) * 50;
-      oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
-    }
-  }, 100);
-}
 
 // 🎨 Theme System
 function setTheme(theme) {

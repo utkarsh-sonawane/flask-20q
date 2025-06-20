@@ -110,45 +110,6 @@ h1 {
   box-shadow: 0 0 0 3px var(--accent-color);
 }
 
-.music-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.music-btn {
-  background: var(--accent-color) !important;
-  color: white;
-  padding: 8px 12px;
-  border-radius: 50%;
-  font-size: 16px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.music-btn:hover {
-  transform: scale(1.1);
-}
-
-.volume-slider {
-  width: 80px;
-  height: 5px;
-  background: var(--border-color);
-  border-radius: 5px;
-  outline: none;
-  -webkit-appearance: none;
-}
-
-.volume-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 15px;
-  height: 15px;
-  background: var(--accent-color);
-  border-radius: 50%;
-  cursor: pointer;
-}
-
 #question-box {
   background: var(--card-bg);
   padding: 20px;
