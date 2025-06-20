@@ -11,6 +11,10 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# ✅ Force UTF-8 encoding for Flask
+app.config['JSON_AS_ASCII'] = False
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
+
 # ✅ Firebase setup using env variables
 cred_path = os.getenv("FIREBASE_CRED_PATH")  # points to firebase-admin-key.json
 db_url = os.getenv("FIREBASE_DB_URL")
@@ -23,13 +27,15 @@ firebase_admin.initialize_app(cred, {
     "databaseURL": db_url
 })
 
-# ✅ Load local questions with proper UTF-8 encoding
+# ✅ Load local questions with explicit UTF-8 encoding
 with open("questions.json", "r", encoding="utf-8") as f:
     all_questions = json.load(f)
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    response = render_template("index.html")
+    # Force UTF-8 response
+    return Response(response, mimetype='text/html; charset=utf-8')
 
 @app.route("/generate-questions", methods=["GET", "POST"])
 def generate_questions():
@@ -73,5 +79,4 @@ def init_room():
 
 if __name__ == "__main__":
     # ✅ Ensure UTF-8 encoding for Flask responses
-    app.config['JSON_AS_ASCII'] = False
     app.run(host="0.0.0.0", port=3000, debug=True)
