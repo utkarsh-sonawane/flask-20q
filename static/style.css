@@ -198,77 +198,6 @@ h1 {
   box-shadow: 0 4px 12px var(--shadow);
 }
 
-.voting-section {
-  margin: 30px auto;
-  max-width: 600px;
-  background: var(--card-bg);
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px var(--shadow);
-  border: 1px solid var(--border-color);
-  display: none;
-}
-
-.voting-section.active {
-  display: block;
-}
-
-.voting-section h3 {
-  color: var(--accent-color);
-  margin-top: 0;
-  font-size: 20px;
-}
-
-.vote-option {
-  background: var(--chat-bg);
-  margin: 10px 0;
-  padding: 15px;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-align: left;
-}
-
-.vote-option:hover {
-  border-color: var(--primary-color);
-  transform: translateX(5px);
-}
-
-.vote-option.voted {
-  border-color: var(--accent-color);
-  background: var(--primary-color);
-  color: white;
-}
-
-.vote-results {
-  margin-top: 20px;
-  padding: 15px;
-  background: var(--chat-bg);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
-
-.vote-bar {
-  background: var(--border-color);
-  height: 20px;
-  border-radius: 10px;
-  margin: 5px 0;
-  overflow: hidden;
-}
-
-.vote-fill {
-  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
-  height: 100%;
-  transition: width 0.5s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 12px;
-}
-
 .export-section {
   margin: 20px auto;
   max-width: 600px;
@@ -290,23 +219,6 @@ h1 {
 .export-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px var(--shadow);
-}
-
-.clear-history-btn {
-  background: var(--secondary-color) !important;
-  color: white;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 20px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin-left: 10px;
-}
-
-.clear-history-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px var(--shadow);
 }
 
 input { 
@@ -386,6 +298,23 @@ button:disabled {
   align-items: center;
   justify-content: center;
   gap: 10px;
+}
+
+.clear-history-btn {
+  background: var(--secondary-color) !important;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-left: 10px;
+}
+
+.clear-history-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px var(--shadow);
 }
 
 #history-content {

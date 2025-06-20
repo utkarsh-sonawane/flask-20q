@@ -29,16 +29,12 @@ const answersList = document.getElementById("answers-list");
 const waitingStatus = document.getElementById("waiting-status");
 const playerCountBox = document.getElementById("player-count");
 const historyContent = document.getElementById("history-content");
-const votingSection = document.getElementById("voting-section");
-const voteOptions = document.getElementById("vote-options");
-const voteResults = document.getElementById("vote-results");
 const exportBtn = document.getElementById("export-btn");
 const clearHistoryBtn = document.getElementById("clear-history-btn");
 const emojiContainer = document.getElementById("emoji-reactions");
 
 let currentQ = 1;
 let answered = false;
-let voted = false;
 let answersHistory = {}; // Store all answers history
 
 console.log("Game initialized for room:", room, "Player:", playerId, "Host:", isHost);
@@ -131,70 +127,6 @@ database.ref(`/${room}/players`).on("value", snap => {
   console.log("Players updated:", playerCount);
 });
 
-// 🗳️ Voting System
-function showVoting(answers) {
-  if (Object.keys(answers).length < 2) return; // Need at least 2 answers to vote
-  
-  votingSection.classList.add('active');
-  voteOptions.innerHTML = '';
-  voted = false;
-  
-  Object.entries(answers).forEach(([player, answer]) => {
-    if (player !== playerId) { // Can't vote for yourself
-      const option = document.createElement('div');
-      option.className = 'vote-option';
-      option.innerHTML = `<strong>${player}:</strong> ${answer}`;
-      option.onclick = () => castVote(player, option);
-      voteOptions.appendChild(option);
-    }
-  });
-}
-
-function castVote(votedPlayer, optionEl) {
-  if (voted) return;
-  
-  database.ref(`/${room}/votes/q${currentQ}/${playerId}`).set(votedPlayer);
-  optionEl.classList.add('voted');
-  voted = true;
-}
-
-// Watch for vote results
-function watchVoteResults() {
-  database.ref(`/${room}/votes/q${currentQ}`).on("value", snap => {
-    const votes = snap.val() || {};
-    const voteCount = {};
-    
-    Object.values(votes).forEach(votedPlayer => {
-      voteCount[votedPlayer] = (voteCount[votedPlayer] || 0) + 1;
-    });
-    
-    if (Object.keys(voteCount).length > 0) {
-      displayVoteResults(voteCount);
-    }
-  });
-}
-
-function displayVoteResults(voteCount) {
-  const total = Object.values(voteCount).reduce((a, b) => a + b, 0);
-  let resultsHTML = '<h4>🏆 Voting Results:</h4>';
-  
-  Object.entries(voteCount)
-    .sort(([,a], [,b]) => b - a)
-    .forEach(([player, votes]) => {
-      const percentage = Math.round((votes / total) * 100);
-      resultsHTML += `
-        <div style="margin: 10px 0;">
-          <div><strong>${player}</strong> - ${votes} votes</div>
-          <div class="vote-bar">
-            <div class="vote-fill" style="width: ${percentage}%">${percentage}%</div>
-          </div>
-        </div>
-      `;
-    });
-  
-  voteResults.innerHTML = resultsHTML;
-}
-
 // 📄 Export Game Feature
 exportBtn.addEventListener('click', () => {
   exportGameResults();
@@ -260,11 +192,9 @@ function loadQuestion(num) {
   console.log("Loading question:", num);
   currentQ = num;
   answered = false;
-  voted = false;
   answerInput.value = "";
   answersList.innerHTML = "";
   waitingStatus.innerText = "";
-  votingSection.classList.remove('active');
 
   // Load question from global questions path
   database.ref(`/questions/q${num}`).once("value").then(snapshot => {
@@ -313,21 +243,15 @@ function loadQuestion(num) {
       
       console.log(`Answers: ${submitted}/${total}`);
       
-      if (submitted === total && total > 0) {
-        // Show voting when all answers are in
-        showVoting(answers);
-        watchVoteResults();
-        
-        if (isHost && num < 20) {
-          waitingStatus.innerText = "All answered! Vote for the funniest! Moving to next question in 15 seconds...";
-          setTimeout(() => {
-            database.ref(`/${room}/current`).set(num + 1);
-          }, 15000);
-        } else if (submitted === total && total > 0) {
-          waitingStatus.innerText = "All answered! Vote for the funniest!";
-        }
+      if (isHost && total > 0 && submitted === total && num < 20) {
+        waitingStatus.innerText = "All answered! Moving to next question...";
+        setTimeout(() => {
+          database.ref(`/${room}/current`).set(num + 1);
+        }, 3000);
       } else if (submitted < total && total > 0) {
         waitingStatus.innerText = `Waiting for ${total - submitted} more...`;
+      } else if (submitted === total && total > 0) {
+        waitingStatus.innerText = "All answered!";
       }
     });
   });
