@@ -235,7 +235,7 @@ function loadQuestion(num) {
       answersList.innerHTML = "";
     }
 
-    // 🔁 Auto-advance if all answered (host only)
+    // 📊 Show answer count status (no auto-advance)
     database.ref(`/${room}/players`).once("value").then(playerSnap => {
       const players = playerSnap.val() || {};
       const total = Object.keys(players).length;
@@ -243,15 +243,10 @@ function loadQuestion(num) {
       
       console.log(`Answers: ${submitted}/${total}`);
       
-      if (isHost && total > 0 && submitted === total && num < 20) {
-        waitingStatus.innerText = "All answered! Moving to next question...";
-        setTimeout(() => {
-          database.ref(`/${room}/current`).set(num + 1);
-        }, 3000);
-      } else if (submitted < total && total > 0) {
-        waitingStatus.innerText = `Waiting for ${total - submitted} more...`;
+      if (submitted < total && total > 0) {
+        waitingStatus.innerText = `Waiting for ${total - submitted} more answers...`;
       } else if (submitted === total && total > 0) {
-        waitingStatus.innerText = "All answered!";
+        waitingStatus.innerText = `All ${total} players have answered! Host can click "Next" to continue.`;
       }
     });
   });
@@ -352,7 +347,7 @@ database.ref(`/${room}/chat`).on("child_added", snap => {
   }
 });
 
-// 🔘 Host manual next
+// 🔘 Host manual next (ONLY way to advance)
 nextBtn.addEventListener('click', () => {
   console.log("Next button clicked, isHost:", isHost);
   
