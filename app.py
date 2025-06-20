@@ -23,7 +23,7 @@ firebase_admin.initialize_app(cred, {
     "databaseURL": db_url
 })
 
-# ✅ Load local questions
+# ✅ Load local questions with proper UTF-8 encoding
 with open("questions.json", "r", encoding="utf-8") as f:
     all_questions = json.load(f)
 
@@ -72,4 +72,6 @@ def init_room():
     return jsonify({"status": "initialized", "room": room})
 
 if __name__ == "__main__":
+    # ✅ Ensure UTF-8 encoding for Flask responses
+    app.config['JSON_AS_ASCII'] = False
     app.run(host="0.0.0.0", port=3000, debug=True)

@@ -9,7 +9,11 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
-  <h1>🎯 20 Questions Game</h1>
+  <div class="header">
+    <h1>🎯 20 Questions Game</h1>
+    <button id="dark-mode-toggle" class="dark-mode-btn">🌙 Dark Mode</button>
+  </div>
+  
   <div id="player-count">Players online: 0</div>
   
   <div id="question-box">Loading questions...</div>
@@ -21,6 +25,14 @@
   <div id="answers-list"></div>
 
   <button id="next-btn" style="display: none;">Next Question (Host Only)</button>
+
+  <!-- Answers History Log -->
+  <div id="answers-history">
+    <h3>📝 Answers History</h3>
+    <div id="history-content">
+      <p class="no-history">No answers yet...</p>
+    </div>
+  </div>
 
   <div id="chat-sidebar">
     <h3>💬 Live Chat</h3>

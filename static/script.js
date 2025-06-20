@@ -28,11 +28,37 @@ const chatSend = document.getElementById("chat-send");
 const answersList = document.getElementById("answers-list");
 const waitingStatus = document.getElementById("waiting-status");
 const playerCountBox = document.getElementById("player-count");
+const historyContent = document.getElementById("history-content");
+const darkModeToggle = document.getElementById("dark-mode-toggle");
 
 let currentQ = 1;
 let answered = false;
+let answersHistory = {}; // Store all answers history
 
 console.log("Game initialized for room:", room, "Player:", playerId, "Host:", isHost);
+
+// 🌙 Dark mode functionality
+function initDarkMode() {
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  updateDarkModeButton(savedTheme);
+}
+
+function updateDarkModeButton(theme) {
+  darkModeToggle.textContent = theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+}
+
+darkModeToggle.addEventListener('click', () => {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  updateDarkModeButton(newTheme);
+});
+
+// Initialize dark mode on page load
+initDarkMode();
 
 // Initialize room and questions
 fetch(`/init-room?room=${room}`)
@@ -58,6 +84,33 @@ database.ref(`/${room}/players`).on("value", snap => {
   playerCountBox.innerText = `Players online: ${playerCount}`;
   console.log("Players updated:", playerCount);
 });
+
+// 📝 Update answers history display
+function updateAnswersHistory() {
+  if (Object.keys(answersHistory).length === 0) {
+    historyContent.innerHTML = '<p class="no-history">No answers yet...</p>';
+    return;
+  }
+
+  let historyHTML = '';
+  for (let qNum = 1; qNum <= 20; qNum++) {
+    if (answersHistory[qNum]) {
+      const questionData = answersHistory[qNum];
+      historyHTML += `
+        <div class="history-question">
+          <h4>Q${qNum}: ${questionData.question}</h4>
+          <ul class="history-answers">
+            ${Object.entries(questionData.answers).map(([name, answer]) => 
+              `<li><b>${name}:</b> ${answer}</li>`
+            ).join('')}
+          </ul>
+        </div>
+      `;
+    }
+  }
+  
+  historyContent.innerHTML = historyHTML;
+}
 
 // 🧠 Load and watch question
 function loadQuestion(num) {
@@ -91,6 +144,18 @@ function loadQuestion(num) {
     if (answerEntries.length > 0) {
       const html = answerEntries.map(([name, ans]) => `<li><b>${name}:</b> ${ans}</li>`).join("");
       answersList.innerHTML = `<ul>${html}</ul>`;
+      
+      // 📝 Store in history when answers are complete
+      database.ref(`/questions/q${num}`).once("value").then(questionSnap => {
+        const questionText = questionSnap.val();
+        if (questionText) {
+          answersHistory[num] = {
+            question: questionText,
+            answers: answers
+          };
+          updateAnswersHistory();
+        }
+      });
     } else {
       answersList.innerHTML = "";
     }
@@ -118,7 +183,7 @@ function loadQuestion(num) {
 }
 
 // 📤 Submit answer
-submitBtn.addEventListener('click', () => {
+function submitAnswer() {
   const answer = answerInput.value.trim();
   console.log("Submit clicked, answer:", answer, "answered:", answered);
   
@@ -144,12 +209,15 @@ submitBtn.addEventListener('click', () => {
       console.error("Error submitting answer:", error);
       alert("Error submitting answer. Please try again.");
     });
-});
+}
 
-// Enable submit on Enter key
+submitBtn.addEventListener('click', submitAnswer);
+
+// ⌨️ Enable submit on Enter key for answer input
 answerInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
-    submitBtn.click();
+    e.preventDefault();
+    submitAnswer();
   }
 });
 
@@ -166,7 +234,7 @@ database.ref(`/${room}/current`).on("value", snapshot => {
 });
 
 // 💬 Chat system
-chatSend.addEventListener('click', () => {
+function sendChatMessage() {
   const msg = chatInput.value.trim();
   console.log("Chat send clicked:", msg);
   
@@ -185,12 +253,15 @@ chatSend.addEventListener('click', () => {
   }).catch(error => {
     console.error("Error sending chat:", error);
   });
-});
+}
 
-// Enable chat on Enter key
+chatSend.addEventListener('click', sendChatMessage);
+
+// ⌨️ Enable chat on Enter key
 chatInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') {
-    chatSend.click();
+    e.preventDefault();
+    sendChatMessage();
   }
 });
 
