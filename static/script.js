@@ -27,8 +27,7 @@ if (isHost) {
   alert("❌ Wrong password. You'll join as a regular player.");
 }
 
-// 🎮 Game modes
-let gameMode = 'normal'; // 'normal' or 'reverse'
+// 🎮 Game variables
 let currentQ = 1;
 let answered = false;
 let answersHistory = {}; // Store all answers history
@@ -50,7 +49,6 @@ const exportBtn = document.getElementById("export-btn");
 const clearHistoryBtn = document.getElementById("clear-history-btn");
 const emojiContainer = document.getElementById("emoji-reactions");
 const wordCloudContainer = document.getElementById("word-cloud");
-const gameModeSelect = document.getElementById("game-mode");
 const profileContainer = document.getElementById("player-profiles");
 
 console.log("Game initialized for room:", room, "Player:", playerId, "Host:", isHost);
@@ -205,125 +203,6 @@ function generateWordCloud(answers) {
   wordCloudContainer.style.display = 'block';
 }
 
-// 🔄 Reverse Mode Functions
-function startReverseMode() {
-  gameMode = 'reverse';
-  questionBox.innerHTML = `
-    <div class="reverse-mode-header">🔄 Reverse Mode</div>
-    <div class="reverse-instructions">Write your own question for others to guess who wrote it!</div>
-  `;
-  answerInput.placeholder = "Write an interesting question...";
-  submitBtn.textContent = "Submit Question";
-  
-  // Clear previous data
-  database.ref(`/${room}/reverse-questions`).remove();
-  database.ref(`/${room}/reverse-guesses`).remove();
-}
-
-function submitReverseQuestion() {
-  const question = answerInput.value.trim();
-  if (!question) {
-    alert("Please write a question!");
-    return;
-  }
-  
-  if (answered) {
-    alert("You have already submitted a question!");
-    return;
-  }
-  
-  database.ref(`/${room}/reverse-questions`).push({
-    question: question,
-    author: playerId,
-    timestamp: firebase.database.ServerValue.TIMESTAMP
-  }).then(() => {
-    answered = true;
-    answerInput.value = "";
-    submitBtn.textContent = "Question Submitted!";
-    submitBtn.disabled = true;
-  });
-}
-
-function showReverseGuessing() {
-  database.ref(`/${room}/reverse-questions`).once('value').then(snapshot => {
-    const questions = snapshot.val() || {};
-    const questionList = Object.entries(questions);
-    
-    if (questionList.length === 0) return;
-    
-    let html = '<div class="reverse-guessing"><h3>🤔 Guess who wrote each question:</h3>';
-    
-    questionList.forEach(([id, data], index) => {
-      html += `
-        <div class="reverse-question-item">
-          <div class="question-text">${index + 1}. "${data.question}"</div>
-          <select class="guess-select" data-question-id="${id}">
-            <option value="">Select who wrote this...</option>
-          </select>
-        </div>
-      `;
-    });
-    
-    html += '<button onclick="submitReverseGuesses()" class="submit-guesses-btn">Submit All Guesses</button></div>';
-    answersList.innerHTML = html;
-    
-    // Populate player options
-    database.ref(`/${room}/players`).once('value').then(playersSnap => {
-      const players = playersSnap.val() || {};
-      const selects = document.querySelectorAll('.guess-select');
-      
-      selects.forEach(select => {
-        Object.keys(players).forEach(playerName => {
-          if (playerName !== playerId) { // Don't show own name
-            const option = document.createElement('option');
-            option.value = playerName;
-            option.textContent = playerName;
-            select.appendChild(option);
-          }
-        });
-      });
-    });
-  });
-}
-
-function submitReverseGuesses() {
-  const selects = document.querySelectorAll('.guess-select');
-  const guesses = {};
-  
-  selects.forEach(select => {
-    if (select.value) {
-      guesses[select.dataset.questionId] = select.value;
-    }
-  });
-  
-  database.ref(`/${room}/reverse-guesses/${playerId}`).set(guesses);
-  alert("Guesses submitted! 🎯");
-}
-
-// 🎮 Game Mode Selection
-function changeGameMode() {
-  if (!isHost) {
-    alert("Only the host can change game modes!");
-    gameModeSelect.value = gameMode;
-    return;
-  }
-  
-  const newMode = gameModeSelect.value;
-  gameMode = newMode;
-  
-  database.ref(`/${room}/gameMode`).set(newMode);
-  
-  if (newMode === 'reverse') {
-    startReverseMode();
-  } else {
-    // Reset to normal mode
-    questionBox.textContent = "Loading questions...";
-    answerInput.placeholder = "Type your answer here...";
-    submitBtn.textContent = "Submit Answer";
-    loadQuestion(currentQ);
-  }
-}
-
 // Initialize player profile
 initializePlayerProfile();
 
@@ -386,7 +265,6 @@ exportBtn.addEventListener('click', () => {
 function exportGameResults() {
   let exportData = `🎯 20 Questions Game Results\n`;
   exportData += `Room: ${room}\n`;
-  exportData += `Mode: ${gameMode}\n`;
   exportData += `Date: ${new Date().toLocaleDateString()}\n`;
   exportData += `Players: ${Object.keys(playerProfiles).length}\n\n`;
   
@@ -452,8 +330,6 @@ function updateAnswersHistory() {
 
 // 🧠 Load and watch question
 function loadQuestion(num) {
-  if (gameMode === 'reverse') return;
-  
   console.log("Loading question:", num);
   currentQ = num;
   answered = false;
@@ -534,11 +410,6 @@ function loadQuestion(num) {
 
 // 📤 Submit answer
 function submitAnswer() {
-  if (gameMode === 'reverse') {
-    submitReverseQuestion();
-    return;
-  }
-  
   const answer = answerInput.value.trim();
   console.log("Submit clicked, answer:", answer, "answered:", answered);
   
@@ -585,21 +456,10 @@ database.ref(`/${room}/current`).on("value", snapshot => {
   console.log("Current question changed to:", q);
   
   // Reset submit button when question changes
-  submitBtn.textContent = gameMode === 'reverse' ? "Submit Question" : "Submit Answer";
+  submitBtn.textContent = "Submit Answer";
   submitBtn.disabled = false;
   
   loadQuestion(q);
-});
-
-// Listen for game mode changes
-database.ref(`/${room}/gameMode`).on("value", snapshot => {
-  const mode = snapshot.val() || 'normal';
-  gameMode = mode;
-  gameModeSelect.value = mode;
-  
-  if (mode === 'reverse' && !isHost) {
-    startReverseMode();
-  }
 });
 
 // Load saved history from Firebase
@@ -668,24 +528,6 @@ nextBtn.addEventListener('click', () => {
     return;
   }
   
-  if (gameMode === 'reverse') {
-    // Check if all questions are submitted, then show guessing phase
-    database.ref(`/${room}/players`).once('value').then(playersSnap => {
-      const playerCount = Object.keys(playersSnap.val() || {}).length;
-      
-      database.ref(`/${room}/reverse-questions`).once('value').then(questionsSnap => {
-        const questionCount = Object.keys(questionsSnap.val() || {}).length;
-        
-        if (questionCount >= playerCount) {
-          showReverseGuessing();
-        } else {
-          alert(`Waiting for ${playerCount - questionCount} more questions...`);
-        }
-      });
-    });
-    return;
-  }
-  
   database.ref(`/${room}/current`).once("value").then(snap => {
     const current = snap.val() || 1;
     console.log("Current question:", current);
@@ -708,10 +550,8 @@ nextBtn.addEventListener('click', () => {
 // Show/hide controls based on host status
 if (isHost) {
   nextBtn.style.display = "inline-block";
-  gameModeSelect.style.display = "inline-block";
 } else {
   nextBtn.style.display = "none";
-  gameModeSelect.style.display = "none";
 }
 
 console.log("Script loaded successfully");
