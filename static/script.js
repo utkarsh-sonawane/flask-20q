@@ -27,6 +27,76 @@ if (isHost) {
   alert("❌ Wrong password. You'll join as a regular player.");
 }
 
+// 🎵 Music System
+let musicEnabled = true;
+let currentMusic = null;
+
+// Create audio elements for each theme
+const musicTracks = {
+  pav: new Audio('/static/pav.mp3'),
+  kari: new Audio('/static/kari.mp3'),
+  oman: new Audio('/static/oman.mp3'),
+  raj: new Audio('/static/raj.mp3'),
+  biswa: new Audio('/static/biswa.mp3')
+};
+
+// Set up music properties
+Object.values(musicTracks).forEach(audio => {
+  audio.loop = true;
+  audio.volume = 0.3;
+  audio.preload = 'auto';
+});
+
+function toggleMusic() {
+  musicEnabled = !musicEnabled;
+  const btn = document.getElementById('music-toggle');
+  
+  if (musicEnabled) {
+    btn.textContent = '🔊 Music On';
+    btn.classList.remove('music-off');
+    // Resume current theme music
+    const currentTheme = localStorage.getItem('theme') || 'pav';
+    playThemeMusic(currentTheme);
+  } else {
+    btn.textContent = '🔇 Music Off';
+    btn.classList.add('music-off');
+    // Stop all music
+    stopAllMusic();
+  }
+  
+  localStorage.setItem('musicEnabled', musicEnabled);
+}
+
+function playThemeMusic(theme) {
+  if (!musicEnabled) return;
+  
+  // Stop current music
+  stopAllMusic();
+  
+  // Play new theme music
+  if (musicTracks[theme]) {
+    currentMusic = musicTracks[theme];
+    currentMusic.currentTime = 0;
+    currentMusic.play().catch(e => {
+      console.log('Audio play failed:', e);
+      // Auto-enable music on first user interaction
+      document.addEventListener('click', () => {
+        if (musicEnabled && currentMusic) {
+          currentMusic.play().catch(err => console.log('Retry play failed:', err));
+        }
+      }, { once: true });
+    });
+  }
+}
+
+function stopAllMusic() {
+  Object.values(musicTracks).forEach(audio => {
+    audio.pause();
+    audio.currentTime = 0;
+  });
+  currentMusic = null;
+}
+
 // 🎮 Game variables
 let currentQ = 1;
 let answered = false;
@@ -105,7 +175,7 @@ function updatePlayerStats(action) {
   database.ref(`/${room}/profiles/${playerId}`).set(playerProfiles[playerId]);
 }
 
-// 🎨 Theme System
+// 🎨 Theme System with Music
 function setTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('theme', theme);
@@ -113,11 +183,30 @@ function setTheme(theme) {
   // Update active button
   document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelector(`.theme-btn.${theme}`).classList.add('active');
+  
+  // Play theme music
+  playThemeMusic(theme);
 }
 
-// Initialize theme
+// Initialize theme and music
 const savedTheme = localStorage.getItem('theme') || 'pav';
+const savedMusicEnabled = localStorage.getItem('musicEnabled');
+if (savedMusicEnabled !== null) {
+  musicEnabled = savedMusicEnabled === 'true';
+}
+
 setTheme(savedTheme);
+
+// Create music toggle button dynamically
+const musicToggleBtn = document.createElement('button');
+musicToggleBtn.id = 'music-toggle';
+musicToggleBtn.className = 'music-toggle-btn';
+musicToggleBtn.textContent = musicEnabled ? '🔊 Music On' : '🔇 Music Off';
+musicToggleBtn.onclick = toggleMusic;
+if (!musicEnabled) musicToggleBtn.classList.add('music-off');
+
+// Add music toggle to theme controls
+document.querySelector('.theme-controls').appendChild(musicToggleBtn);
 
 // 🧹 Clear History Function
 function clearHistory() {

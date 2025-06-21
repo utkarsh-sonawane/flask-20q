@@ -50,6 +50,19 @@
   --accent-color: #ff6b35;
 }
 
+[data-theme="biswa"] {
+  --bg-color: #fff0f5; /* LavenderBlush */
+  --text-color: #4a2c2a; /* Deep muted brown-pink for contrast */
+  --card-bg: #ffe4ec; /* Light pink */
+  --border-color: #f8b8c6; /* Soft border pink */
+  --primary-color: #ec407a; /* Vibrant pink */
+  --secondary-color: #f06292; /* Lighter pink */
+  --shadow: rgba(236, 64, 122, 0.2); /* Pinkish shadow */
+  --chat-bg: #ffe6f0; /* Very light pink */
+  --input-bg: #fff5f9; /* Ultra-light pink input background */
+  --accent-color: #d81b60; /* Deep pink for accents */
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -110,6 +123,7 @@ h1 {
 .theme-btn.kari { background: #424242; color: white; }
 .theme-btn.oman { background: #9d4edd; color: white; }
 .theme-btn.raj { background: #c9b037; color: #0a0a0a; }
+.theme-btn.biswa { background: #ec407a; color: white; }
 
 .theme-btn:hover {
   transform: scale(1.05);
@@ -118,6 +132,37 @@ h1 {
 
 .theme-btn.active {
   box-shadow: 0 0 0 3px var(--accent-color);
+}
+
+/* 🎵 Music Toggle Button */
+.music-toggle-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  border-radius: 20px;
+  border: 2px solid var(--primary-color);
+  background: var(--card-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: bold;
+}
+
+.music-toggle-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px var(--shadow);
+  background: var(--primary-color);
+  color: white;
+}
+
+.music-toggle-btn.music-off {
+  background: #666;
+  color: white;
+  border-color: #666;
+}
+
+.music-toggle-btn.music-off:hover {
+  background: #555;
+  border-color: #555;
 }
 
 .game-controls {
@@ -635,4 +680,15 @@ button:disabled {
   background-image: 
     radial-gradient(circle at 25% 25%, rgba(157, 78, 221, 0.1) 0%, transparent 50%),
     radial-gradient(circle at 75% 75%, rgba(199, 125, 255, 0.1) 0%, transparent 50%);
+}
+
+/* Biswa theme special effects */
+[data-theme="biswa"] {
+  background-image: 
+    radial-gradient(circle at 30% 70%, rgba(236, 64, 122, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 70% 30%, rgba(240, 98, 146, 0.1) 0%, transparent 50%);
+}
+
+[data-theme="biswa"] #question-box {
+  box-shadow: 0 0 20px rgba(236, 64, 122, 0.3);
 }
