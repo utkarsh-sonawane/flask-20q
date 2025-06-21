@@ -11,7 +11,7 @@
   --accent-color: #FF5722;
 }
 
-[data-theme="dark"] {
+[data-theme="kari"] {
   --bg-color: #1a1a1a;
   --text-color: #e0e0e0;
   --card-bg: #2d2d2d;
@@ -24,7 +24,7 @@
   --accent-color: #FF7043;
 }
 
-[data-theme="purple"] {
+[data-theme="oman"] {
   --bg-color: #1a0d2e;
   --text-color: #e6d7ff;
   --card-bg: #2d1b4e;
@@ -37,7 +37,7 @@
   --accent-color: #f72585;
 }
 
-[data-theme="panther"] {
+[data-theme="raj"] {
   --bg-color: #0a0a0a;
   --text-color: #c9b037;
   --card-bg: #1a1a1a;
@@ -106,10 +106,10 @@ h1 {
   transition: all 0.3s ease;
 }
 
-.theme-btn.light { background: #2196F3; color: white; }
-.theme-btn.dark { background: #424242; color: white; }
-.theme-btn.purple { background: #9d4edd; color: white; }
-.theme-btn.panther { background: #c9b037; color: #0a0a0a; }
+.theme-btn.pav { background: #2196F3; color: white; }
+.theme-btn.kari { background: #424242; color: white; }
+.theme-btn.oman { background: #9d4edd; color: white; }
+.theme-btn.raj { background: #c9b037; color: #0a0a0a; }
 
 .theme-btn:hover {
   transform: scale(1.05);
@@ -620,18 +620,18 @@ button:disabled {
   }
 }
 
-/* Panther theme special effects */
-[data-theme="panther"] {
+/* Raj theme special effects */
+[data-theme="raj"] {
   background-image: 
     radial-gradient(circle at 20% 80%, rgba(201, 176, 55, 0.1) 0%, transparent 50%),
     radial-gradient(circle at 80% 20%, rgba(201, 176, 55, 0.1) 0%, transparent 50%);
 }
 
-[data-theme="panther"] #question-box {
+[data-theme="raj"] #question-box {
   box-shadow: 0 0 20px rgba(201, 176, 55, 0.3);
 }
 
-[data-theme="purple"] {
+[data-theme="oman"] {
   background-image: 
     radial-gradient(circle at 25% 25%, rgba(157, 78, 221, 0.1) 0%, transparent 50%),
     radial-gradient(circle at 75% 75%, rgba(199, 125, 255, 0.1) 0%, transparent 50%);

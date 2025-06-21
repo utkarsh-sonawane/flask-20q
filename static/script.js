@@ -116,7 +116,7 @@ function setTheme(theme) {
 }
 
 // Initialize theme
-const savedTheme = localStorage.getItem('theme') || 'light';
+const savedTheme = localStorage.getItem('theme') || 'pav';
 setTheme(savedTheme);
 
 // 🧹 Clear History Function
